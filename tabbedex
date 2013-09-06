@@ -320,14 +320,18 @@ sub on_focus_out {
 }
 
 sub on_key_press {
-   my ($self, $event) = @_;
-   $self->{cur}->key_press ($event->{state}, $event->{keycode}, $event->{time});
+   my ($self, $event, $keysym) = @_;
+   if ( $self->_is_key_consumable($keysym) ) {
+      $self->{cur}->key_press ($event->{state}, $event->{keycode}, $event->{time});
+   }
    1;
 }
 
 sub on_key_release {
-   my ($self, $event) = @_;
-   $self->{cur}->key_release ($event->{state}, $event->{keycode}, $event->{time});
+   my ($self, $event, $keysym) = @_;
+   if ( $self->_is_key_consumable($keysym) ) {
+       $self->{cur}->key_release ($event->{state}, $event->{keycode}, $event->{time});
+   }
    1;
 }
 
@@ -409,6 +413,7 @@ sub on_init {
       ($self->my_resource ('no-tabbedex-keys') or 'false') !~ /^(?:false|0|no)/i;
     $self->{reopen_on_close} =
       ($self->my_resource ('reopen-on-close') or 'false') !~ /^(?:false|0|no)/i;
+   $self->{not_consumable_keys} = [split /,\s*/, $self->x_resource('tabbed.not-consumable-keys')];
 
    ();
 }
@@ -517,6 +522,10 @@ sub tab_destroy {
 
 sub tab_key_press {
    my ($self, $tab, $event, $keysym, $str) = @_;
+
+   unless ( $self->_is_key_consumable($keysym) ) {
+       return ();
+   }
 
    if ($tab->{is_inputting_name}) {
       if ($keysym == 0xff0d || $keysym == 0xff8d) { # enter
@@ -657,6 +666,12 @@ sub rename_tab {
   $self->refresh;
 
   ();
+}
+
+sub _is_key_consumable {
+    my ($self, $keysym) = @_;
+
+    return ( scalar(grep { hex($_) == $keysym; } @{$self->{not_consumable_keys}}) > 0 ) ? 0 : 1;
 }
 
 package urxvt::ext::tabbedex::tab;
